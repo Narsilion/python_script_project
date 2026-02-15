@@ -72,12 +72,6 @@ variable "assign_public_ip" {
   default     = true
 }
 
-variable "log_group_name" {
-  type        = string
-  description = "CloudWatch log group name."
-  default     = null
-}
-
 variable "log_retention_days" {
   type        = number
   description = "CloudWatch log retention days."

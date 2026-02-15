@@ -26,26 +26,20 @@ TAG=v1.0
 ECR_URI=${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${IMAGE}:${TAG}
 ```
 
-Create or update a repository creation template so ECR can auto-create repos on first push:
+Create or update a repository creation template so ECR can auto-create repos on first push. The snippet below is idempotent – it will create the template if it doesn’t exist, or update it otherwise:
 
 ```bash
 aws ecr create-repository-creation-template \
   --region ${REGION} \
   --prefix ROOT \
   --applied-for CREATE_ON_PUSH \
-  --description "Auto-create ECR repos on push"
-```
-
-If `ROOT` already exists, run:
-
-```bash
-aws ecr update-repository-creation-template \
+  --description "Auto-create ECR repos on push" \
+|| aws ecr update-repository-creation-template \
   --region ${REGION} \
   --prefix ROOT \
   --applied-for CREATE_ON_PUSH \
   --description "Auto-create ECR repos on push"
 ```
-
 Build, login, and push:
 
 ```bash
@@ -70,7 +64,7 @@ This creates:
 - Batch compute environment (`FARGATE_SPOT`)
 - Batch job queue
 - Batch job definition
-- CloudWatch log group
+- CloudWatch log group `/aws/batch/job/<name>`
 - IAM roles
 
 ## 4) Trigger on demand
@@ -79,18 +73,18 @@ Submit a normal job:
 
 ```bash
 aws batch submit-job \
-  --job-name python-script-success-$(date +%s) \
-  --job-queue python-script-jq \
-  --job-definition python-script-jd
+  --job-name python-script-run-$(date +%s) \
+  --job-queue python-script-queue \
+  --job-definition python-script
 ```
 
 Submit another job (parallel demo):
 
 ```bash
 aws batch submit-job \
-  --job-name python-script-second-$(date +%s) \
-  --job-queue python-script-jq \
-  --job-definition python-script-jd
+  --job-name python-script-run-2-$(date +%s) \
+  --job-queue python-script-queue \
+  --job-definition python-script
 ```
 
 ## 5) Observe status and failure reason
@@ -116,6 +110,7 @@ aws logs tail /aws/batch/job/python-script --follow
 
 ## 6) User access for on-demand execution
 
+
 Provide a minimal IAM policy that allows users to submit and inspect jobs only for this queue and definition.
 
 Example permissions:
@@ -126,8 +121,8 @@ Example permissions:
 - `logs:DescribeLogStreams`
 
 Scope resources to:
-- `arn:aws:batch:<region>:<account-id>:job-queue/python-script-jq`
-- `arn:aws:batch:<region>:<account-id>:job-definition/python-script-jd:*`
+- `arn:aws:batch:<region>:<account-id>:job-queue/python-script-queue`
+- `arn:aws:batch:<region>:<account-id>:job-definition/python-script:*`
 - `/aws/batch/job/python-script` log group
 
 ## Demo flow (screen share)

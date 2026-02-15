@@ -14,8 +14,6 @@ locals {
 
   vcpu   = 0.25
   memory = 512
-
-  log_group = "/aws/batch/job/${local.service_name}"
 }
 
 inputs = {
@@ -26,7 +24,6 @@ inputs = {
   memory                = local.memory
   max_vcpus             = 8
   compute_resource_type = "FARGATE_SPOT"
-  log_group_name        = local.log_group
   security_group_name   = "default"
 
   command = [

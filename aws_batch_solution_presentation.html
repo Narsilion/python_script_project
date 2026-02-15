@@ -287,9 +287,28 @@
       </div>
     </section>
 
+    <section class="slide">
+      <span class="pill">Slide 8</span>
+      <h2>How We Validate Before Deploy</h2>
+      <ul>
+        <li><strong>Local script check:</strong> run <code>python main.py</code> and verify output and exit code.</li>
+        <li><strong>Container check:</strong> run <code>docker build</code> and <code>docker run</code> to validate runtime dependencies.</li>
+        <li><strong>Quality gate:</strong> run tests and linting (<code>pytest</code>, <code>ruff</code>) and require pass.</li>
+        <li><strong>Infra safety:</strong> run <code>terragrunt plan</code> and review changes before <code>apply</code>.</li>
+        <li><strong>AWS smoke test:</strong> submit one non-prod Batch job and confirm <code>SUCCEEDED</code> with CloudWatch logs.</li>
+      </ul>
+      <p>Only after these checks pass do we deploy to the target environment.</p>
+    </section>
+
+    <section class="slide">
+      <span class="pill">Slide 9</span>
+      <h1>Demo time</h1>
+      <p>Build, deploy, submit jobs, and observe execution in AWS Batch.</p>
+    </section>
+
     <div class="controls">
       <button id="prev" aria-label="Previous slide">Previous</button>
-      <div id="count" class="count">1 / 7</div>
+      <div id="count" class="count">1 / 9</div>
       <button id="next" aria-label="Next slide">Next</button>
     </div>
   </main>

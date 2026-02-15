@@ -1,5 +1,7 @@
 locals {
-  log_group_name = var.log_group_name != null ? var.log_group_name : "/aws/batch/job/${var.name}"
+  # Keep logs isolated per service and avoid creating/using a shared
+  # "/aws/batch/job" group.
+  log_group_name = "/aws/batch/job/${var.name}"
   subnet_ids     = length(var.subnet_ids) > 0 ? var.subnet_ids : data.aws_subnets.default.ids
   security_group_ids = length(var.security_group_ids) > 0 ? var.security_group_ids : [
     data.aws_security_group.by_name.id
@@ -49,6 +51,32 @@ resource "aws_iam_role_policy_attachment" "batch_service" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole"
 }
 
+# the managed policy doesn’t always include every ECS action required when the
+# compute environment is re‑created; add DescribeClusters (and any other missing
+# ECS permissions) explicitly so the Batch service role is valid after destroy
+#/recreate.  Without this, `aws_batch_compute_environment` enters INVALID state
+# complaining about ecs:DescribeClusters.
+resource "aws_iam_role_policy" "batch_service_ecs" {
+  name = "${var.name}-batch-service-ecs-policy"
+  role = aws_iam_role.batch_service.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecs:DescribeClusters",
+          # include other ECS actions that may be required by Batch
+          "ecs:CreateCluster",
+          "ecs:RegisterContainerInstance",
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role" "task_execution" {
   name = "${var.name}-batch-task-execution-role"
 
@@ -89,7 +117,7 @@ resource "aws_batch_compute_environment" "this" {
 }
 
 resource "aws_batch_job_queue" "this" {
-  name     = "${var.name}-jq"
+  name     = "${var.name}-queue"
   state    = "ENABLED"
   priority = 1
 
@@ -100,7 +128,7 @@ resource "aws_batch_job_queue" "this" {
 }
 
 resource "aws_batch_job_definition" "this" {
-  name                  = "${var.name}-jd"
+  name                  = var.name
   type                  = "container"
   platform_capabilities = ["FARGATE"]
   propagate_tags        = true
