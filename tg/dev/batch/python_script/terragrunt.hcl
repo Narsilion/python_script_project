@@ -10,7 +10,7 @@ include "root" {
 locals {
   service_name = "python-script"
 
-  image = "436081123286.dkr.ecr.eu-central-1.amazonaws.com/python-script:v1.0"
+  image = get_env("IMAGE_URI", "436081123286.dkr.ecr.eu-central-1.amazonaws.com/python-script:v1.0")
 
   vcpu   = 0.25
   memory = 512

@@ -51,8 +51,10 @@ docker push ${ECR_URI}
 
 ## 3) Deploy with Terragrunt
 
-1. Set `locals.image` in `tg/dev/batch/python_script/terragrunt.hcl` to `${ECR_URI}`.
-2. Deploy Batch resources:
+1. Use the image from env (preferred) or change the default in `tg/dev/batch/python_script/terragrunt.hcl`.
+2. Export `IMAGE_URI` before deploy (optional, overrides default):
+   `export IMAGE_URI=${ECR_URI}`
+3. Deploy Batch resources:
 
 ```bash
 cd tg/dev/batch/python_script
@@ -133,3 +135,20 @@ Scope resources to:
 4. Submit two jobs in parallel.
 5. Show Batch job statuses and CloudWatch logs.
 6. Show IAM policy used by an end-user role for on-demand execution.
+
+## 7) GitHub Actions (Build + Deploy)
+
+Workflows added:
+- `.github/workflows/build-ecr-image.yml`
+- `.github/workflows/deploy-terragrunt.yml`
+
+Repository configuration needed:
+- Secret: `AWS_GHA_ROLE_ARN` (IAM role for GitHub OIDC)
+- Variable: `AWS_ACCOUNT_ID`
+- Variable: `AWS_REGION` (for example `eu-central-1`)
+- Variable: `ECR_REPOSITORY` (for example `python-script`)
+
+Pipeline behavior:
+- Push to `main` builds and pushes an image tagged with commit SHA.
+- Deploy workflow runs after a successful build and executes `terragrunt apply`.
+- Manual deploy is also available via `workflow_dispatch` with optional `image_tag`.

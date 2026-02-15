@@ -1,0 +1,78 @@
+name: Deploy Batch Infrastructure
+
+on:
+  workflow_run:
+    workflows: ["Build And Push ECR Image"]
+    types: [completed]
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "ECR image tag (defaults to current commit SHA)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'eu-central-1' }}
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'python-script' }}
+  TERRAGRUNT_VERSION: "0.67.10"
+
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GHA_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Install Terragrunt
+        run: |
+          curl -sSL -o terragrunt "https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64"
+          chmod +x terragrunt
+          sudo mv terragrunt /usr/local/bin/terragrunt
+          terragrunt --version
+
+      - name: Resolve image URI
+        id: image
+        env:
+          INPUT_IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+        run: |
+          if [ -z "${AWS_ACCOUNT_ID}" ]; then
+            echo "Missing repository variable AWS_ACCOUNT_ID"
+            exit 1
+          fi
+
+          if [ -n "${INPUT_IMAGE_TAG}" ]; then
+            IMAGE_TAG="${INPUT_IMAGE_TAG}"
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            IMAGE_TAG="${{ github.event.workflow_run.head_sha }}"
+          else
+            IMAGE_TAG="${GITHUB_SHA}"
+          fi
+
+          IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
+          echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
+          echo "Deploying with ${IMAGE_URI}"
+
+      - name: Terragrunt apply
+        working-directory: tg/dev/batch/python_script
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.image_uri }}
+        run: |
+          terragrunt init --terragrunt-non-interactive
+          terragrunt apply -auto-approve --terragrunt-non-interactive
